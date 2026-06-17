@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}拆片报告 · autoCat{% endblock %}
+{% macro fmt(sec) -%}
+{{ '%02d:%02d'|format((sec // 60)|int, (sec % 60)|int) }}
+{%- endmacro %}
+{% block content %}
+<section class="result" data-job="{{ job.id }}">
+  <div class="result-head">
+    <h1>{{ result.metadata.title or '拆片报告' }}</h1>
+    <a class="link" href="/">＋ 新建任务</a>
+  </div>
+
+  {% if result.warnings %}
+  <div class="warnings">
+    <strong>处理提示</strong>
+    <ul>{% for w in result.warnings %}<li>{{ w }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <!-- 1. 基础信息 -->
+  <div class="card">
+    <h2>基础信息</h2>
+    <div class="meta-grid">
+      <div><span class="k">作者</span><span class="v">{{ result.metadata.author or '未获取' }}</span></div>
+      <div><span class="k">时长</span><span class="v">{% if result.metadata.duration %}{{ '%.1f'|format(result.metadata.duration) }} 秒{% else %}未获取{% endif %}</span></div>
+      <div><span class="k">点赞</span><span class="v">{{ result.metadata.likes if result.metadata.likes is not none else '未获取' }}</span></div>
+      <div><span class="k">评论</span><span class="v">{{ result.metadata.comments if result.metadata.comments is not none else '未获取' }}</span></div>
+      <div><span class="k">分享</span><span class="v">{{ result.metadata.shares if result.metadata.shares is not none else '未获取' }}</span></div>
+      <div><span class="k">收藏</span><span class="v">{{ result.metadata.favorites if result.metadata.favorites is not none else '未获取' }}</span></div>
+    </div>
+  </div>
+
+  <!-- 7. 导出按钮 -->
+  <div class="card export-card">
+    <h2>导出</h2>
+    <div class="actions">
+      {% if result.exports.markdown %}<a class="btn primary" href="{{ result.exports.markdown }}">Markdown 报告</a>{% endif %}
+      {% if result.exports.xlsx %}<a class="btn ghost" href="{{ result.exports.xlsx }}">Excel 拆片表</a>{% endif %}
+      {% if result.exports.srt %}<a class="btn ghost" href="{{ result.exports.srt }}">SRT 字幕</a>{% endif %}
+    </div>
+  </div>
+
+  <!-- 封面候选帧 -->
+  {% if result.cover_candidates %}
+  <div class="card">
+    <h2>封面候选帧</h2>
+    <div class="cover-grid">
+      {% for src in result.cover_candidates %}
+      <a class="cover-item" href="{{ src }}" target="_blank"><img src="{{ src }}" alt="封面候选" loading="lazy" /></a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- 4. 爆款原因分析 -->
+  <div class="card">
+    <h2>爆款原因分析</h2>
+    <div class="analysis-grid">
+      <div><span class="k">开头钩子</span><p>{{ result.analysis.hook or '未生成' }}</p></div>
+      <div><span class="k">核心冲突</span><p>{{ result.analysis.conflict or '未生成' }}</p></div>
+      <div><span class="k">情绪价值</span><p>{{ result.analysis.emotion_value or '未生成' }}</p></div>
+      <div><span class="k">信息价值</span><p>{{ result.analysis.info_value or '未生成' }}</p></div>
+      <div><span class="k">信任背书</span><p>{{ result.analysis.trust or '未生成' }}</p></div>
+      <div><span class="k">转发理由</span><p>{{ result.analysis.share_reason or '未生成' }}</p></div>
+    </div>
+  </div>
+
+  <!-- 3. 视频结构拆解 -->
+  {% if result.analysis.structure %}
+  <div class="card">
+    <h2>视频结构拆解</h2>
+    <ul class="bullet">{% for item in result.analysis.structure %}<li>{{ item }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+
+  <!-- 5. 自动拆片表 -->
+  <div class="card">
+    <h2>自动拆片表（{{ result.clips|length }} 条）</h2>
+    <div class="table-wrap">
+      <table class="table clips">
+        <thead>
+          <tr>
+            <th>#</th><th>开始</th><th>结束</th><th>标题</th><th>爆点</th>
+            <th>推荐理由</th><th>开头字幕</th><th>封面文案</th><th>剪辑建议</th><th>平台</th><th>潜力</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for clip in result.clips %}
+          <tr>
+            <td>{{ clip.index }}</td>
+            <td class="mono">{{ fmt(clip.start) }}</td>
+            <td class="mono">{{ fmt(clip.end) }}</td>
+            <td>{{ clip.title }}</td>
+            <td>{{ clip.hotspot_type }}</td>
+            <td class="small">{{ clip.reason }}</td>
+            <td class="small">{{ clip.opening_subtitle }}</td>
+            <td class="small">{{ clip.cover_text }}</td>
+            <td class="small">{{ clip.edit_suggestion }}</td>
+            <td class="small">{{ clip.platforms|join('、') }}</td>
+            <td><span class="potential p-{{ clip.potential }}">{{ clip.potential }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 2. 逐字稿时间轴（可编辑） -->
+  <div class="card">
+    <div class="transcript-head">
+      <h2>逐字稿</h2>
+      {% if result.transcript %}
+      <div class="transcript-tools">
+        <span class="hint">可直接修改文字，纠正 ASR 错字后重新分析</span>
+        <button id="reanalyze" class="btn primary small">保存并重新分析</button>
+      </div>
+      {% endif %}
+    </div>
+    {% if result.transcript %}
+    <div class="transcript" id="transcript">
+      {% for seg in result.transcript %}
+      <div class="seg" data-start="{{ seg.start }}" data-end="{{ seg.end }}">
+        <span class="ts mono">{{ fmt(seg.start) }}</span>
+        <span class="txt" contenteditable="true">{{ seg.text }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">未获取到逐字稿。</p>
+    {% endif %}
+  </div>
+
+  <!-- 风险提示 -->
+  {% if result.analysis.risks %}
+  <div class="card">
+    <h2>风险提示</h2>
+    <ul class="bullet">{% for r in result.analysis.risks %}<li>{{ r }}</li>{% endfor %}</ul>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const reBtn = document.getElementById('reanalyze');
+if (reBtn) {
+  const jobId = document.querySelector('.result').dataset.job;
+  reBtn.addEventListener('click', async () => {
+    const segments = Array.from(document.querySelectorAll('#transcript .seg')).map((el) => ({
+      start: parseFloat(el.dataset.start),
+      end: parseFloat(el.dataset.end),
+      text: el.querySelector('.txt').innerText.trim(),
+    })).filter((s) => s.text);
+    reBtn.disabled = true;
+    reBtn.textContent = '处理中...';
+    try {
+      const put = await fetch('/api/jobs/' + jobId + '/transcript', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ segments }),
+      });
+      if (!put.ok) throw new Error('保存逐字稿失败');
+      const re = await fetch('/api/jobs/' + jobId + '/reanalyze', { method: 'POST' });
+      if (!re.ok) throw new Error('重新分析失败');
+      window.location.href = '/job/' + jobId;
+    } catch (e) {
+      alert(e.message);
+      reBtn.disabled = false;
+      reBtn.textContent = '保存并重新分析';
+    }
+  });
+}
+</script>
+{% endblock %}

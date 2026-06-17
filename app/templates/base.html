@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}autoCat 抖音自动拆片{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="logo">✂︎</span>
+      <span>autoCat<small>抖音自动拆片</small></span>
+    </a>
+  </header>
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer">
+    <span>输入抖音链接 → 自动转写 → 爆款分析 → 拆片报告</span>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

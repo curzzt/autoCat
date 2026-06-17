@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}任务进度 · autoCat{% endblock %}
+{% block content %}
+<section class="progress-page" data-job="{{ job.id }}">
+  <h1>任务处理中</h1>
+  <p class="mono muted">{{ job.id }}</p>
+
+  <div class="card">
+    <div class="progress-bar"><div id="bar" class="progress-fill" style="width: {{ job.progress }}%"></div></div>
+    <p id="message" class="progress-msg">{{ job.message }}</p>
+
+    <ol class="stage-list" id="stages">
+      <li data-stage="downloading">下载视频</li>
+      <li data-stage="processing_media">抽取音频与关键帧</li>
+      <li data-stage="transcribing">生成逐字稿</li>
+      <li data-stage="analyzing_visuals">分析画面</li>
+      <li data-stage="generating_report">爆款分析与拆片</li>
+      <li data-stage="exporting">导出报告</li>
+    </ol>
+
+    <div id="warnings" class="warnings" hidden></div>
+    <div id="error" class="error" hidden></div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const jobId = document.querySelector('.progress-page').dataset.job;
+const order = ['pending','downloading','processing_media','transcribing','analyzing_visuals','generating_report','exporting','completed'];
+
+function renderStages(status) {
+  const idx = order.indexOf(status);
+  document.querySelectorAll('#stages li').forEach((li) => {
+    const i = order.indexOf(li.dataset.stage);
+    li.classList.remove('done', 'active');
+    if (i < idx) li.classList.add('done');
+    else if (i === idx) li.classList.add('active');
+  });
+}
+
+async function poll() {
+  try {
+    const resp = await fetch('/api/jobs/' + jobId);
+    if (!resp.ok) throw new Error('查询失败');
+    const data = await resp.json();
+    document.getElementById('bar').style.width = data.progress + '%';
+    document.getElementById('message').textContent = data.message;
+    renderStages(data.status);
+
+    if (data.warnings && data.warnings.length) {
+      const box = document.getElementById('warnings');
+      box.hidden = false;
+      box.innerHTML = '<strong>提示</strong><ul>' +
+        data.warnings.map((w) => '<li>' + w + '</li>').join('') + '</ul>';
+    }
+
+    if (data.status === 'completed') {
+      window.location.href = '/result/' + jobId;
+      return;
+    }
+    if (data.status === 'failed') {
+      const err = document.getElementById('error');
+      err.hidden = false;
+      err.textContent = data.error || '任务失败';
+      return;
+    }
+    setTimeout(poll, 2000);
+  } catch (e) {
+    setTimeout(poll, 3000);
+  }
+}
+poll();
+</script>
+{% endblock %}

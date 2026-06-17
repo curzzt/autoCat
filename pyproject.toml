@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autocat"
+version = "0.1.0"
+description = "抖音自动拆片工具：输入抖音链接，自动生成逐字稿、爆款分析与拆片报告"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "pydantic>=2.6",
+    "httpx>=0.27",
+    "yt-dlp>=2024.4.9",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+asr = ["faster-whisper>=1.0"]
+ocr = ["paddleocr>=2.7", "paddlepaddle>=2.6"]
+localmedia = ["imageio-ffmpeg>=0.4.9"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+autocat = "app.pipeline.run:main"
+
+[tool.setuptools]
+packages = ["app", "app.pipeline"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

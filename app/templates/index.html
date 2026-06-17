@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <h1>只输入一个抖音链接，自动生成拆片报告</h1>
+  <p class="subtitle">自动完成下载、逐字稿转写、爆款分析与切片建议，并支持导出 Markdown / SRT / Excel。</p>
+
+  <div class="card input-card">
+    <label class="field-label" for="url">抖音视频链接 / 分享文案</label>
+    <textarea id="url" rows="2" placeholder="粘贴抖音分享文案或链接，例如 https://www.douyin.com/video/..."></textarea>
+    <div class="actions">
+      <button id="submit" class="btn primary">开始分析</button>
+      <span class="divider">或</span>
+      <label class="btn ghost" for="upload">上传本地视频兜底
+        <input id="upload" type="file" accept="video/*" hidden />
+      </label>
+    </div>
+    <div id="error" class="error" hidden></div>
+  </div>
+
+  <div class="tool-status">
+    {% for name, ok in tools.items() %}
+    <span class="chip {{ 'ok' if ok else 'off' }}">{{ name }}{{ '可用' if ok else '未配置' }}</span>
+    {% endfor %}
+  </div>
+</section>
+
+{% if jobs %}
+<section class="recent">
+  <h2>最近任务</h2>
+  <table class="table">
+    <thead>
+      <tr><th>任务 ID</th><th>来源</th><th>状态</th><th>创建时间</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td class="mono">{{ job.id }}</td>
+        <td>{{ '上传' if job.source == 'upload' else '链接' }}</td>
+        <td><span class="status status-{{ job.status.value }}">{{ job.message }}</span></td>
+        <td class="muted">{{ job.created_at }}</td>
+        <td>
+          {% if job.status.value == 'completed' %}
+          <a class="link" href="/result/{{ job.id }}">查看报告</a>
+          {% else %}
+          <a class="link" href="/job/{{ job.id }}">查看进度</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+const submitBtn = document.getElementById('submit');
+const urlInput = document.getElementById('url');
+const uploadInput = document.getElementById('upload');
+const errorBox = document.getElementById('error');
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.hidden = false;
+}
+
+submitBtn.addEventListener('click', async () => {
+  const url = urlInput.value.trim();
+  if (!url) { showError('请先粘贴抖音链接'); return; }
+  submitBtn.disabled = true;
+  submitBtn.textContent = '创建中...';
+  try {
+    const resp = await fetch('/api/jobs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.detail || '创建任务失败');
+    }
+    const data = await resp.json();
+    window.location.href = '/job/' + data.job_id;
+  } catch (e) {
+    showError(e.message);
+    submitBtn.disabled = false;
+    submitBtn.textContent = '开始分析';
+  }
+});
+
+uploadInput.addEventListener('change', async () => {
+  const file = uploadInput.files[0];
+  if (!file) return;
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const resp = await fetch('/api/jobs/upload', { method: 'POST', body: form });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.detail || '上传失败');
+    }
+    const data = await resp.json();
+    window.location.href = '/job/' + data.job_id;
+  } catch (e) {
+    showError(e.message);
+  }
+});
+</script>
+{% endblock %}
