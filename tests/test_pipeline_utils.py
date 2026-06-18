@@ -62,3 +62,25 @@ def test_select_cover_candidates_assigns_nearest_frame():
 
 def test_select_cover_candidates_empty_frames():
     assert select_cover_candidates([], [ClipSuggestion(index=1, start=0, end=5)], "j") == []
+
+
+def test_heuristic_clips_snaps_to_scene_change():
+    settings = load_settings()
+    transcript = [
+        TranscriptSegment(start=float(i * 6), end=float(i * 6 + 6), text=f"第{i}句")
+        for i in range(20)
+    ]
+    # 在 18s 处有镜头切换，且已满足最小时长(15s)，应在此断开
+    clips = _heuristic_clips(transcript, settings, scene_changes=[18.0])
+    assert clips[0].end == 18.0
+
+
+def test_heuristic_clips_without_scene_uses_target_window():
+    settings = load_settings()
+    transcript = [
+        TranscriptSegment(start=float(i * 6), end=float(i * 6 + 6), text=f"第{i}句")
+        for i in range(20)
+    ]
+    clips = _heuristic_clips(transcript, settings)
+    # 默认目标窗口为 (15+45)/2=30 秒，首片在 30s 附近断开而非 18s
+    assert clips[0].end >= 30.0

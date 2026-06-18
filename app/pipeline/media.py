@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import List, Optional, Tuple
 
 from ..config import Settings
 from .utils import PipelineError, run_command
+
+_SCENE_PTS_RE = re.compile(r"pts_time:([0-9.]+)")
 
 
 def probe_media(video_path: Path, settings: Settings) -> dict:
@@ -110,3 +113,39 @@ def extract_keyframes(
 
     frames = sorted(frames_dir.glob("frame_*.jpg"))
     return frames, warnings
+
+
+def detect_scene_changes(
+    video_path: Path, settings: Settings, threshold: float = 0.3
+) -> Tuple[List[float], List[str]]:
+    """用 ffmpeg 场景检测得到镜头切换时间点（秒）。失败时降级返回空列表。"""
+
+    warnings: List[str] = []
+    if not settings.ffmpeg_path:
+        return [], ["未检测到 ffmpeg，跳过场景检测"]
+
+    try:
+        proc = run_command(
+            [
+                settings.ffmpeg_path,
+                "-i",
+                str(video_path),
+                "-filter:v",
+                f"select='gt(scene,{threshold})',showinfo",
+                "-f",
+                "null",
+                "-",
+            ],
+            timeout=600,
+            check=False,
+        )
+    except PipelineError as exc:
+        return [], [f"场景检测失败：{exc}"]
+
+    stderr = proc.stderr.decode("utf-8", "ignore")
+    times = sorted({round(float(m), 2) for m in _SCENE_PTS_RE.findall(stderr)})
+    scenes_path = video_path.parent / "scenes.json"
+    scenes_path.write_text(
+        json.dumps(times, ensure_ascii=False), encoding="utf-8"
+    )
+    return times, warnings

@@ -35,6 +35,32 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_config (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+            """
+        )
+
+
+def get_config() -> dict:
+    with _lock, _connect() as conn:
+        rows = conn.execute("SELECT key, value FROM app_config").fetchall()
+    return {row["key"]: row["value"] for row in rows}
+
+
+def set_config(items: dict) -> None:
+    with _lock, _connect() as conn:
+        for key, value in items.items():
+            conn.execute(
+                """
+                INSERT INTO app_config (key, value) VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, str(value)),
+            )
 
 
 def _row_to_job(row: sqlite3.Row) -> Job:

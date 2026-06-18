@@ -1,0 +1,22 @@
+services:
+  autocat:
+    build: .
+    image: autocat:latest
+    container_name: autocat
+    ports:
+      - "8010:8000"
+    environment:
+      AUTOCAT_STORAGE_DIR: /data
+      AUTOCAT_LLM_BASE_URL: ${AUTOCAT_LLM_BASE_URL:-}
+      AUTOCAT_LLM_API_KEY: ${AUTOCAT_LLM_API_KEY:-}
+      AUTOCAT_LLM_MODEL: ${AUTOCAT_LLM_MODEL:-gpt-4o-mini}
+      AUTOCAT_ASR_MODEL: ${AUTOCAT_ASR_MODEL:-small}
+      AUTOCAT_CLIP_MIN: ${AUTOCAT_CLIP_MIN:-15}
+      AUTOCAT_CLIP_MAX: ${AUTOCAT_CLIP_MAX:-45}
+      AUTOCAT_KEYFRAME_INTERVAL: ${AUTOCAT_KEYFRAME_INTERVAL:-5}
+    volumes:
+      - autocat-data:/data
+    restart: unless-stopped
+
+volumes:
+  autocat-data:

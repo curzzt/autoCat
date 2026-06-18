@@ -16,27 +16,31 @@ def analyze(
     transcript: List[TranscriptSegment],
     frames: List[FrameAnalysis],
     settings: Settings,
+    scene_changes: Optional[List[float]] = None,
 ) -> Tuple[Analysis, List[ClipSuggestion], List[str]]:
-    """LLM 爆款分析 + 拆片。LLM 不可用或失败时降级为启发式拆片。"""
+    """LLM 爆款分析 + 拆片。LLM 不可用或失败时降级为启发式拆片。
+
+    scene_changes 为镜头切换时间点，用于把启发式切片边界对齐到画面变化处。
+    """
 
     warnings: List[str] = []
 
     if not transcript:
         warnings.append("无逐字稿可分析，拆片结果可能不可靠")
 
-    if settings.llm.enabled:
+    if settings.llm.enabled and transcript:
         try:
             analysis = _llm_hotspot_analysis(metadata, transcript, frames, settings)
             clips = _llm_clip_suggestions(metadata, transcript, settings)
             if clips:
                 return analysis, clips, warnings
             warnings.append("LLM 未返回有效拆片，已降级为启发式拆片")
-            return analysis, _heuristic_clips(transcript, settings), warnings
+            return analysis, _heuristic_clips(transcript, settings, scene_changes), warnings
         except Exception as exc:  # noqa: BLE001 - LLM 失败降级
             warnings.append(f"LLM 分析失败，已降级为启发式分析：{exc}")
 
     analysis = _heuristic_analysis(transcript)
-    clips = _heuristic_clips(transcript, settings)
+    clips = _heuristic_clips(transcript, settings, scene_changes)
     return analysis, clips, dedupe_warnings(warnings)
 
 
@@ -195,13 +199,19 @@ def _heuristic_analysis(transcript: List[TranscriptSegment]) -> Analysis:
 
 
 def _heuristic_clips(
-    transcript: List[TranscriptSegment], settings: Settings
+    transcript: List[TranscriptSegment],
+    settings: Settings,
+    scene_changes: Optional[List[float]] = None,
 ) -> List[ClipSuggestion]:
-    """按目标时长窗口把逐字稿切成多条候选片段。"""
+    """按目标时长窗口把逐字稿切成多条候选片段。
+
+    若提供 scene_changes，则在满足最小时长后优先在镜头切换处断开，使切片边界更自然。
+    """
 
     if not transcript:
         return []
 
+    scenes = scene_changes or []
     min_s = settings.clip.min_seconds
     max_s = settings.clip.max_seconds
     target = (min_s + max_s) / 2
@@ -243,7 +253,11 @@ def _heuristic_clips(
         if bucket_start is None:
             bucket_start = seg.start
         bucket.append(seg)
-        if seg.end - bucket_start >= target:
+        duration = seg.end - bucket_start
+        scene_break = duration >= min_s and any(
+            bucket_start + min_s <= sc <= seg.end for sc in scenes
+        )
+        if duration >= target or scene_break:
             flush(seg.end)
             bucket = []
             bucket_start = None

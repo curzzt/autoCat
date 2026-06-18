@@ -111,6 +111,11 @@ class JobRunner:
         frames, warnings = media_mod.extract_keyframes(self.video_path, self.settings)
         self.frame_paths = frames
         self._warn(warnings)
+        scenes, scene_warnings = media_mod.detect_scene_changes(
+            self.video_path, self.settings
+        )
+        self.scene_changes = scenes
+        self._warn(scene_warnings)
 
     def _stage_transcribe(self) -> List[TranscriptSegment]:
         self._set_status(JobStatus.TRANSCRIBING)
@@ -139,7 +144,11 @@ class JobRunner:
     ):
         self._set_status(JobStatus.GENERATING_REPORT)
         analysis, clips, warnings = analyze_mod.analyze(
-            self.metadata, transcript, frames, self.settings
+            self.metadata,
+            transcript,
+            frames,
+            self.settings,
+            scene_changes=getattr(self, "scene_changes", None),
         )
         self._warn(warnings)
         return analysis, clips
@@ -224,12 +233,27 @@ def reanalyze_job(job_id: str, settings: Settings = default_settings) -> None:
 
     transcript = _load_transcript(job_dir)
     frames = _load_frames(job_dir)
+    runner.scene_changes = _load_scenes(job_dir)
     try:
         analysis, clips = runner._stage_report(transcript, frames)
         runner._stage_export(transcript, frames, analysis, clips)
         runner._set_status(JobStatus.COMPLETED)
     except Exception as exc:  # noqa: BLE001
         runner._fail(f"重新分析失败：{exc}")
+
+
+def retry_job(job_id: str, settings: Settings = default_settings) -> None:
+    """重试失败任务：重置状态并重新执行完整流水线。"""
+
+    job = get_job(job_id)
+    if job is None:
+        return
+    job.status = JobStatus.PENDING
+    job.progress = 0
+    job.error = None
+    job.warnings = []
+    save_job(job)
+    run_job(job_id, settings)
 
 
 def _load_metadata(job_dir: Path, job: Job) -> VideoMetadata:
@@ -275,6 +299,18 @@ def _load_frames(job_dir: Path) -> List[FrameAnalysis]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return [FrameAnalysis(**item) for item in data]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _load_scenes(job_dir: Path) -> List[float]:
+    import json
+
+    path = job_dir / "scenes.json"
+    if not path.exists():
+        return []
+    try:
+        return [float(x) for x in json.loads(path.read_text(encoding="utf-8"))]
     except Exception:  # noqa: BLE001
         return []
 

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}历史任务 · autoCat{% endblock %}
+{% block content %}
+<section class="recent">
+  <div class="result-head">
+    <h1>历史任务</h1>
+    <a class="link" href="/">＋ 新建任务</a>
+  </div>
+  {% if jobs %}
+  <table class="table">
+    <thead>
+      <tr><th>任务 ID</th><th>来源</th><th>状态</th><th>创建时间</th><th>更新时间</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for job in jobs %}
+      <tr>
+        <td class="mono">{{ job.id }}</td>
+        <td>{{ '上传' if job.source == 'upload' else '链接' }}</td>
+        <td><span class="status status-{{ job.status.value }}">{{ job.message }}</span></td>
+        <td class="muted">{{ job.created_at }}</td>
+        <td class="muted">{{ job.updated_at }}</td>
+        <td>
+          {% if job.status.value == 'completed' %}
+          <a class="link" href="/result/{{ job.id }}">查看报告</a>
+          {% else %}
+          <a class="link" href="/job/{{ job.id }}">查看进度</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">还没有任务，去首页创建一个吧。</p>
+  {% endif %}
+</section>
+{% endblock %}

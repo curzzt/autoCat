@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}设置 · autoCat{% endblock %}
+{% block content %}
+<section class="hero">
+  <h1>LLM 配置</h1>
+  <p class="subtitle">配置爆款分析与拆片所使用的大模型。保存后立即生效并持久化，重启依然保留。未配置时自动降级为启发式拆片。</p>
+</section>
+
+<div class="card input-card">
+  <div class="field">
+    <label class="field-label" for="base_url">接口地址 Base URL</label>
+    <input id="base_url" class="form-input" type="text" placeholder="例如 https://open.bigmodel.cn/api/paas/v4" />
+    <div class="hint">OpenAI 兼容接口的基础地址，系统会自动拼接 /chat/completions。</div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="api_key">API Key</label>
+    <input id="api_key" class="form-input" type="password" autocomplete="off" placeholder="请输入 API Key" />
+    <div class="hint" id="key_hint"></div>
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="model">模型 ID</label>
+    <input id="model" class="form-input" type="text" placeholder="例如 glm-5.1" />
+  </div>
+
+  <div class="field">
+    <label class="field-label" for="timeout">超时时间（秒）</label>
+    <input id="timeout" class="form-input" type="number" min="1" value="120" />
+  </div>
+
+  <div class="actions">
+    <button id="save" class="btn primary">保存配置</button>
+    <span id="state" class="chip off">未配置</span>
+  </div>
+  <div id="error" class="error" hidden></div>
+  <div id="success" class="success" hidden></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const baseUrlInput = document.getElementById('base_url');
+const apiKeyInput = document.getElementById('api_key');
+const modelInput = document.getElementById('model');
+const timeoutInput = document.getElementById('timeout');
+const saveBtn = document.getElementById('save');
+const stateChip = document.getElementById('state');
+const keyHint = document.getElementById('key_hint');
+const errorBox = document.getElementById('error');
+const successBox = document.getElementById('success');
+
+function flash(box, msg) {
+  box.textContent = msg;
+  box.hidden = false;
+  const other = box === errorBox ? successBox : errorBox;
+  other.hidden = true;
+}
+
+function render(cfg) {
+  baseUrlInput.value = cfg.base_url || '';
+  modelInput.value = cfg.model || '';
+  timeoutInput.value = cfg.timeout_seconds || 120;
+  if (cfg.has_api_key) {
+    apiKeyInput.placeholder = '已配置（' + cfg.api_key_masked + '），留空则不修改';
+    keyHint.textContent = '当前已配置 API Key，留空提交表示保持不变。';
+  } else {
+    apiKeyInput.placeholder = '请输入 API Key';
+    keyHint.textContent = '尚未配置 API Key。';
+  }
+  stateChip.textContent = cfg.enabled ? 'LLM 已启用' : '未启用';
+  stateChip.className = 'chip ' + (cfg.enabled ? 'ok' : 'off');
+}
+
+async function load() {
+  try {
+    const resp = await fetch('/api/settings/llm');
+    if (!resp.ok) throw new Error('读取配置失败');
+    render(await resp.json());
+  } catch (e) {
+    flash(errorBox, e.message);
+  }
+}
+
+saveBtn.addEventListener('click', async () => {
+  saveBtn.disabled = true;
+  saveBtn.textContent = '保存中...';
+  try {
+    const payload = {
+      base_url: baseUrlInput.value.trim(),
+      model: modelInput.value.trim(),
+      timeout_seconds: parseInt(timeoutInput.value, 10) || 120,
+    };
+    const key = apiKeyInput.value.trim();
+    if (key) payload.api_key = key;
+    const resp = await fetch('/api/settings/llm', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.detail || '保存失败');
+    }
+    apiKeyInput.value = '';
+    render(await resp.json());
+    flash(successBox, '配置已保存并生效。');
+  } catch (e) {
+    flash(errorBox, e.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = '保存配置';
+  }
+});
+
+load();
+</script>
+{% endblock %}

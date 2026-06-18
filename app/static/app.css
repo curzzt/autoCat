@@ -51,6 +51,10 @@ body {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
 }
 
+.nav { margin-left: auto; display: flex; gap: 18px; }
+.nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+.nav a:hover { color: var(--text); }
+
 .container { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
 
 .hero { text-align: center; }
@@ -68,7 +72,8 @@ body {
 
 .input-card { max-width: 720px; margin: 0 auto; text-align: left; }
 .field-label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
-textarea {
+textarea,
+.form-input {
   width: 100%;
   background: var(--panel-2);
   border: 1px solid var(--border);
@@ -78,7 +83,21 @@ textarea {
   font-size: 15px;
   resize: vertical;
 }
-textarea:focus { outline: none; border-color: var(--accent-2); }
+textarea:focus,
+.form-input:focus { outline: none; border-color: var(--accent-2); }
+
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+.field .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+.success {
+  margin-top: 12px;
+  color: var(--ok);
+  background: rgba(46, 204, 113, 0.08);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
 
 .actions { display: flex; align-items: center; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
 .divider { color: var(--muted); font-size: 13px; }

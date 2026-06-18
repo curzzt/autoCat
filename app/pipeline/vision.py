@@ -22,7 +22,7 @@ def analyze_frames(
 
     ocr_engine = _load_ocr()
     if ocr_engine is None:
-        warnings.append("未安装 PaddleOCR，已跳过画面文字识别，基于逐字稿继续分析")
+        warnings.append("未安装 RapidOCR，已跳过画面文字识别，基于逐字稿继续分析")
 
     results: List[FrameAnalysis] = []
     for i, frame in enumerate(frames):
@@ -52,22 +52,21 @@ def _describe(ocr_text: str) -> str:
 
 def _load_ocr():
     try:
-        from paddleocr import PaddleOCR  # type: ignore
+        from rapidocr_onnxruntime import RapidOCR  # type: ignore
     except ImportError:
         return None
     try:
-        return PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+        return RapidOCR()
     except Exception:  # noqa: BLE001
         return None
 
 
 def _run_ocr(engine, frame: Path) -> str:
-    result = engine.ocr(str(frame), cls=True)
+    result, _elapse = engine(str(frame))
     texts: List[str] = []
-    for block in result or []:
-        for line in block or []:
-            if len(line) >= 2 and isinstance(line[1], (list, tuple)):
-                texts.append(str(line[1][0]))
+    for item in result or []:
+        if len(item) >= 2 and isinstance(item[1], str):
+            texts.append(item[1])
     return " ".join(texts).strip()
 
 

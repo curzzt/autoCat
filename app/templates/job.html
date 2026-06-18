@@ -20,6 +20,10 @@
 
     <div id="warnings" class="warnings" hidden></div>
     <div id="error" class="error" hidden></div>
+    <div id="retry-box" class="actions" hidden>
+      <button id="retry" class="btn primary">重试任务</button>
+      <a class="btn ghost" href="/">返回首页</a>
+    </div>
   </div>
 </section>
 {% endblock %}
@@ -63,6 +67,7 @@ async function poll() {
       const err = document.getElementById('error');
       err.hidden = false;
       err.textContent = data.error || '任务失败';
+      document.getElementById('retry-box').hidden = false;
       return;
     }
     setTimeout(poll, 2000);
@@ -71,5 +76,23 @@ async function poll() {
   }
 }
 poll();
+
+const retryBtn = document.getElementById('retry');
+if (retryBtn) {
+  retryBtn.addEventListener('click', async () => {
+    retryBtn.disabled = true;
+    retryBtn.textContent = '重新排队中...';
+    try {
+      const resp = await fetch('/api/jobs/' + jobId + '/retry', { method: 'POST' });
+      if (!resp.ok) throw new Error('重试失败');
+      document.getElementById('retry-box').hidden = true;
+      document.getElementById('error').hidden = true;
+      setTimeout(poll, 1000);
+    } catch (e) {
+      retryBtn.disabled = false;
+      retryBtn.textContent = '重试任务';
+    }
+  });
+}
 </script>
 {% endblock %}

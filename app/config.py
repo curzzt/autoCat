@@ -157,3 +157,23 @@ def load_settings() -> Settings:
 
 
 settings = load_settings()
+
+
+def apply_llm_config(values: dict) -> None:
+    """就地更新全局 settings.llm，使所有持有该单例引用的模块即时生效。
+
+    仅更新 values 中出现的键；base_url/api_key 传空字符串表示清空。
+    """
+
+    llm = settings.llm
+    if "base_url" in values:
+        llm.base_url = (values["base_url"] or "").strip() or None
+    if "api_key" in values:
+        llm.api_key = (values["api_key"] or "").strip() or None
+    if values.get("model"):
+        llm.model = str(values["model"]).strip()
+    if values.get("timeout_seconds") is not None:
+        try:
+            llm.timeout_seconds = int(values["timeout_seconds"])
+        except (TypeError, ValueError):
+            pass

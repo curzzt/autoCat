@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 asr = ["faster-whisper>=1.0"]
-ocr = ["paddleocr>=2.7", "paddlepaddle>=2.6"]
+ocr = ["rapidocr-onnxruntime>=1.4"]
 localmedia = ["imageio-ffmpeg>=0.4.9"]
 dev = ["pytest>=8.0"]
 
